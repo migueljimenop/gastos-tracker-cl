@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
 from app.database import create_tables
-from app.routers import categories, transactions, budgets, reports, scraper
+from app.routers import categories, transactions, budgets, reports, scraper, importer
 
 
 @asynccontextmanager
@@ -22,6 +22,7 @@ app.include_router(categories.router)
 app.include_router(transactions.router)
 app.include_router(budgets.router)
 app.include_router(reports.router)
+app.include_router(importer.router)
 app.include_router(scraper.router)
 
 

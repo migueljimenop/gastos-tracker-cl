@@ -109,6 +109,17 @@ class BudgetAlert(BaseModel):
     is_exceeded: bool
 
 
+# ── Importer ──────────────────────────────────────────────────────────────────
+
+class ImportResult(BaseModel):
+    bank: str
+    filename: str
+    transactions_found: int
+    transactions_new: int
+    transactions_skipped: int
+    errors: list[str] = []
+
+
 # ── Scraper ───────────────────────────────────────────────────────────────────
 
 class ScrapeRequest(BaseModel):
