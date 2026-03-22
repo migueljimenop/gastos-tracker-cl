@@ -3,11 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.models import Transaction, BankSource
-from app.schemas import TransactionCreate, TransactionUpdate, TransactionOut
+from app.schemas import TransactionCreate, TransactionUpdate, TransactionOut, BulkDeleteRequest
 from app.services.categorizer import auto_categorize
 
-router = APIRouter(prefix="/transactions", tags=["transactions"])
+router = APIRouter(prefix="/transactions", tags=["transactions"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/", response_model=list[TransactionOut])
@@ -61,6 +62,12 @@ def update_transaction(tx_id: int, data: TransactionUpdate, db: Session = Depend
     db.commit()
     db.refresh(tx)
     return tx
+
+
+@router.delete("/bulk", status_code=204)
+def bulk_delete(data: BulkDeleteRequest, db: Session = Depends(get_db)):
+    db.query(Transaction).filter(Transaction.id.in_(data.ids)).delete(synchronize_session=False)
+    db.commit()
 
 
 @router.delete("/{tx_id}", status_code=204)

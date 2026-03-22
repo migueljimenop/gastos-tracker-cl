@@ -4,7 +4,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base, get_db
+from app.dependencies import get_current_user
 from app.main import app
+from app.models import User
 
 TEST_DATABASE_URL = "sqlite:///./test_gastos.db"
 
@@ -28,6 +30,10 @@ def db():
         session.close()
 
 
+def _mock_user():
+    return User(id=1, username="testuser", hashed_password="x", is_active=True)
+
+
 @pytest.fixture
 def client(db):
     def override_get_db():
@@ -37,6 +43,7 @@ def client(db):
             pass
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = _mock_user
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

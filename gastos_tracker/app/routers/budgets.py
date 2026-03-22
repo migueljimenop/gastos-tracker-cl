@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.models import Budget
 from app.schemas import BudgetCreate, BudgetUpdate, BudgetOut
 from app.services.alerts import get_budget_alerts
 
-router = APIRouter(prefix="/budgets", tags=["budgets"])
+router = APIRouter(prefix="/budgets", tags=["budgets"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/", response_model=list[BudgetOut])

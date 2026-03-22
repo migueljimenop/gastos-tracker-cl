@@ -4,11 +4,12 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.services.reports import build_monthly_report
 from app.services.exporter import export_to_csv, export_to_excel
 from app.schemas import MonthlyReport
 
-router = APIRouter(prefix="/reports", tags=["reports"])
+router = APIRouter(prefix="/reports", tags=["reports"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/monthly", response_model=MonthlyReport)

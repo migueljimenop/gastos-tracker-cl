@@ -3,12 +3,13 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.models import BankSource, Transaction
 from app.schemas import ScrapeRequest, ScrapeResult
 from app.scrapers import SantanderScraper, FalabellaScraper
 from app.services.categorizer import auto_categorize
 
-router = APIRouter(prefix="/scraper", tags=["scraper"])
+router = APIRouter(prefix="/scraper", tags=["scraper"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("/run", response_model=ScrapeResult)

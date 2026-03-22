@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     FALABELLA_RUT: str = ""
     FALABELLA_PASSWORD: str = ""
     SECRET_KEY: str = "dev-secret-key"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_HOURS: int = 8
     ALERT_EMAIL: str = ""
 
     class Config:
