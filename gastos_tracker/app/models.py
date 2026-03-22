@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from decimal import Decimal
 from sqlalchemy import String, Numeric, DateTime, ForeignKey, Enum, Text
