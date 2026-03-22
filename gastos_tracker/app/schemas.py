@@ -120,6 +120,32 @@ class ImportResult(BaseModel):
     errors: list[str] = []
 
 
+# ── Auth ──────────────────────────────────────────────────────────────────────
+
+class UserCreate(BaseModel):
+    username: str
+    password: str
+
+
+class UserOut(BaseModel):
+    id: int
+    username: str
+    is_active: bool
+
+    model_config = {"from_attributes": True}
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+# ── Bulk delete ────────────────────────────────────────────────────────────────
+
+class BulkDeleteRequest(BaseModel):
+    ids: list[int]
+
+
 # ── Scraper ───────────────────────────────────────────────────────────────────
 
 class ScrapeRequest(BaseModel):

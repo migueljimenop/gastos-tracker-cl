@@ -24,7 +24,11 @@
     <span class="text-2xl">💰</span>
     <h1 class="text-xl font-bold text-gray-900">Gastos Tracker CL</h1>
   </div>
-  <span id="status-msg" class="text-sm text-gray-400"></span>
+  <div class="flex items-center gap-4">
+    <span id="status-msg" class="text-sm text-gray-400"></span>
+    <span id="user-label" class="text-sm text-gray-500"></span>
+    <button onclick="logout()" class="btn bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs px-3 py-1.5">Cerrar sesión</button>
+  </div>
 </header>
 
 <main class="max-w-7xl mx-auto px-6 py-6 space-y-6">
@@ -33,21 +37,18 @@
   <div class="card">
     <h2 class="font-semibold text-gray-700 mb-4">Importar Cartola</h2>
     <div class="flex flex-wrap gap-4">
-      <!-- Santander -->
       <label class="flex flex-col items-center gap-2 border-2 border-dashed border-gray-200 rounded-xl px-8 py-5 cursor-pointer hover:border-red-400 hover:bg-red-50 transition-colors group">
         <span class="text-3xl">🏦</span>
         <span class="font-semibold text-gray-700 group-hover:text-red-700">Santander</span>
         <span class="text-xs text-gray-400">.xlsx / .csv</span>
         <input id="file-santander" type="file" accept=".xlsx,.csv,.xls" class="hidden" onchange="uploadFile('santander', this)" />
       </label>
-      <!-- Falabella -->
       <label class="flex flex-col items-center gap-2 border-2 border-dashed border-gray-200 rounded-xl px-8 py-5 cursor-pointer hover:border-green-400 hover:bg-green-50 transition-colors group">
         <span class="text-3xl">🛍️</span>
         <span class="font-semibold text-gray-700 group-hover:text-green-700">Falabella CMR</span>
         <span class="text-xs text-gray-400">.xls / .xlsx / .csv</span>
         <input id="file-falabella" type="file" accept=".xls,.xlsx,.csv" class="hidden" onchange="uploadFile('falabella', this)" />
       </label>
-      <!-- Upload result -->
       <div id="upload-result" class="flex items-center text-sm text-gray-500 italic"></div>
     </div>
   </div>
@@ -72,7 +73,7 @@
     </div>
   </div>
 
-  <!-- Filters + Export -->
+  <!-- Filters + Export + Delete actions -->
   <div class="card flex flex-wrap items-end gap-4">
     <div class="flex flex-col gap-1">
       <label class="text-xs font-semibold text-gray-500 uppercase">Banco</label>
@@ -102,7 +103,13 @@
       <label class="text-xs font-semibold text-gray-500 uppercase">Buscar</label>
       <input id="f-search" type="text" placeholder="descripción…" oninput="applyFilters()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white w-48" />
     </div>
-    <div class="ml-auto flex gap-2">
+    <div class="ml-auto flex gap-2 flex-wrap">
+      <button id="btn-delete-selected" onclick="deleteSelected()" class="btn bg-red-50 hover:bg-red-100 text-red-600 hidden">
+        🗑 Eliminar seleccionadas (<span id="selected-count">0</span>)
+      </button>
+      <button onclick="deleteFiltered()" class="btn bg-red-50 hover:bg-red-100 text-red-600">
+        🗑 Eliminar filtradas
+      </button>
       <button onclick="exportFile('csv')" class="btn bg-gray-100 hover:bg-gray-200 text-gray-700">
         ⬇ CSV
       </button>
@@ -115,9 +122,12 @@
   <!-- Table -->
   <div class="card p-0 overflow-hidden">
     <div class="overflow-x-auto">
-      <table class="w-full min-w-[640px]">
+      <table class="w-full min-w-[700px]">
         <thead>
           <tr>
+            <th class="w-10 text-center">
+              <input type="checkbox" id="chk-all" onchange="toggleSelectAll(this)" class="cursor-pointer" />
+            </th>
             <th onclick="sortBy('date')" class="cursor-pointer select-none">Fecha <span id="sort-date"></span></th>
             <th>Descripción</th>
             <th onclick="sortBy('transaction_type')" class="cursor-pointer select-none">Tipo <span id="sort-transaction_type"></span></th>
@@ -127,7 +137,7 @@
           </tr>
         </thead>
         <tbody id="tx-body">
-          <tr><td colspan="6" class="text-center py-12 text-gray-400 italic">Cargando transacciones…</td></tr>
+          <tr><td colspan="7" class="text-center py-12 text-gray-400 italic">Cargando transacciones…</td></tr>
         </tbody>
       </table>
     </div>
@@ -136,27 +146,67 @@
 
 </main>
 
+<!-- Confirm modal -->
+<div id="modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+  <div class="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4">
+    <h3 class="font-bold text-gray-900 text-lg mb-2">¿Confirmar eliminación?</h3>
+    <p id="modal-msg" class="text-gray-500 text-sm mb-6"></p>
+    <div class="flex gap-3 justify-end">
+      <button onclick="closeModal()" class="btn bg-gray-100 hover:bg-gray-200 text-gray-700">Cancelar</button>
+      <button id="modal-confirm" class="btn bg-red-600 hover:bg-red-700 text-white">Eliminar</button>
+    </div>
+  </div>
+</div>
+
 <script>
+// ── Auth ───────────────────────────────────────────────────────────────────────
+const token = localStorage.getItem('token');
+if (!token) window.location = '/login';
+
+function authHeaders() {
+  return { 'Authorization': 'Bearer ' + token };
+}
+
+async function apiFetch(url, opts = {}) {
+  opts.headers = { ...authHeaders(), ...(opts.headers || {}) };
+  const res = await fetch(url, opts);
+  if (res.status === 401) { logout(); }
+  return res;
+}
+
+function logout() {
+  localStorage.removeItem('token');
+  window.location = '/login';
+}
+
 // ── State ──────────────────────────────────────────────────────────────────────
 let allTx = [];
 let filtered = [];
+let selected = new Set();
 let sortField = 'date';
-let sortDir = -1; // -1 = desc, 1 = asc
+let sortDir = -1;
 const PAGE = 100;
 let page = 0;
 
 // ── Init ───────────────────────────────────────────────────────────────────────
-window.onload = () => loadTransactions();
+window.onload = () => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    document.getElementById('user-label').textContent = payload.sub;
+  } catch {}
+  loadTransactions();
+};
 
-// ── Load transactions from API ─────────────────────────────────────────────────
+// ── Load transactions ──────────────────────────────────────────────────────────
 async function loadTransactions() {
   try {
-    const res = await fetch('/transactions/?limit=1000');
-    if (!res.ok) throw new Error('Error ' + res.status);
+    const res = await apiFetch('/transactions/?limit=1000');
+    if (!res.ok) throw new Error();
     allTx = await res.json();
+    selected.clear();
     applyFilters();
     setStatus('');
-  } catch (e) {
+  } catch {
     setStatus('⚠ No se pudo conectar con la API', true);
   }
 }
@@ -165,27 +215,18 @@ async function loadTransactions() {
 async function uploadFile(bank, input) {
   const file = input.files[0];
   if (!file) return;
-
   const el = document.getElementById('upload-result');
-  el.innerHTML = `<span class="text-blue-500">Subiendo ${file.name}…</span>`;
-
+  el.innerHTML = `<span class="text-blue-500">Subiendo ${escHtml(file.name)}…</span>`;
   const form = new FormData();
   form.append('file', file);
-
   try {
-    const res = await fetch(`/import/${bank}`, { method: 'POST', body: form });
+    const res = await apiFetch(`/import/${bank}`, { method: 'POST', body: form });
     const data = await res.json();
-
-    if (!res.ok) {
-      el.innerHTML = `<span class="text-red-500">⚠ ${data.detail || 'Error al importar'}</span>`;
-      return;
-    }
+    if (!res.ok) { el.innerHTML = `<span class="text-red-500">⚠ ${escHtml(data.detail || 'Error al importar')}</span>`; return; }
     el.innerHTML = `<span class="text-green-600">✓ ${data.transactions_new} nuevas, ${data.transactions_skipped} duplicadas</span>`;
     input.value = '';
     await loadTransactions();
-  } catch (e) {
-    el.innerHTML = `<span class="text-red-500">⚠ Error de red</span>`;
-  }
+  } catch { el.innerHTML = `<span class="text-red-500">⚠ Error de red</span>`; }
 }
 
 // ── Filters ────────────────────────────────────────────────────────────────────
@@ -195,7 +236,6 @@ function applyFilters() {
   const from   = document.getElementById('f-from').value;
   const to     = document.getElementById('f-to').value;
   const search = document.getElementById('f-search').value.toLowerCase();
-
   filtered = allTx.filter(t => {
     if (bank   && t.bank_source !== bank) return false;
     if (type   && t.transaction_type !== type) return false;
@@ -205,7 +245,6 @@ function applyFilters() {
     if (to   && d > to)   return false;
     return true;
   });
-
   page = 0;
   sortTable();
   updateSummary();
@@ -226,7 +265,6 @@ function sortTable() {
     if (va > vb) return  sortDir;
     return 0;
   });
-  // Update sort indicators
   ['date', 'transaction_type', 'amount'].forEach(f => {
     const el = document.getElementById('sort-' + f);
     if (el) el.textContent = f === sortField ? (sortDir === -1 ? ' ↓' : ' ↑') : '';
@@ -241,19 +279,21 @@ function renderPage() {
   const slice = filtered.slice(start, start + PAGE);
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-12 text-gray-400 italic">Sin transacciones</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-12 text-gray-400 italic">Sin transacciones</td></tr>`;
     document.getElementById('pagination').innerHTML = '';
     return;
   }
 
   tbody.innerHTML = slice.map(t => {
-    const date  = t.date.slice(0, 10);
+    const date    = t.date.slice(0, 10);
     const isDebit = t.transaction_type === 'debit';
-    const amount = formatCLP(t.amount);
-    const bank  = t.bank_source === 'santander' ? '🏦 Santander' : '🛍️ Falabella';
-    const cat   = t.category ? `<span class="text-xs text-gray-500">${t.category.name}</span>` : '<span class="text-xs text-gray-300">—</span>';
+    const amount  = formatCLP(t.amount);
+    const bank    = t.bank_source === 'santander' ? '🏦 Santander' : '🛍️ Falabella';
+    const cat     = t.category ? `<span class="text-xs text-gray-500">${escHtml(t.category.name)}</span>` : '<span class="text-xs text-gray-300">—</span>';
+    const chk     = selected.has(t.id) ? 'checked' : '';
     return `
-      <tr>
+      <tr data-id="${t.id}">
+        <td class="text-center"><input type="checkbox" ${chk} onchange="toggleRow(${t.id}, this)" class="cursor-pointer" /></td>
         <td class="whitespace-nowrap font-mono text-xs text-gray-500">${date}</td>
         <td class="max-w-xs truncate" title="${escHtml(t.description)}">${escHtml(t.description)}</td>
         <td><span class="${isDebit ? 'tag-debit' : 'tag-credit'}">${isDebit ? 'Cargo' : 'Abono'}</span></td>
@@ -262,6 +302,11 @@ function renderPage() {
         <td>${cat}</td>
       </tr>`;
   }).join('');
+
+  // Sync select-all checkbox
+  const allChecked = slice.length > 0 && slice.every(t => selected.has(t.id));
+  document.getElementById('chk-all').checked = allChecked;
+  updateDeleteBtn();
 
   const total = filtered.length;
   const end   = Math.min(start + PAGE, total);
@@ -280,12 +325,67 @@ function changePage(dir) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// ── Select / Delete ────────────────────────────────────────────────────────────
+function toggleRow(id, chk) {
+  chk.checked ? selected.add(id) : selected.delete(id);
+  updateDeleteBtn();
+}
+
+function toggleSelectAll(chk) {
+  const start = page * PAGE;
+  const slice = filtered.slice(start, start + PAGE);
+  slice.forEach(t => chk.checked ? selected.add(t.id) : selected.delete(t.id));
+  renderPage();
+}
+
+function updateDeleteBtn() {
+  const btn = document.getElementById('btn-delete-selected');
+  const cnt = document.getElementById('selected-count');
+  cnt.textContent = selected.size;
+  btn.classList.toggle('hidden', selected.size === 0);
+}
+
+function deleteSelected() {
+  if (selected.size === 0) return;
+  confirm(`¿Eliminar ${selected.size} transacción(es) seleccionada(s)?`, async () => {
+    await apiFetch('/transactions/bulk', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [...selected] }),
+    });
+    await loadTransactions();
+  });
+}
+
+function deleteFiltered() {
+  if (filtered.length === 0) return;
+  confirm(`¿Eliminar las ${filtered.length} transacciones del filtro actual?`, async () => {
+    await apiFetch('/transactions/bulk', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: filtered.map(t => t.id) }),
+    });
+    await loadTransactions();
+  });
+}
+
+// ── Modal confirm ──────────────────────────────────────────────────────────────
+function confirm(msg, onConfirm) {
+  document.getElementById('modal-msg').textContent = msg;
+  document.getElementById('modal').classList.remove('hidden');
+  document.getElementById('modal-confirm').onclick = () => { closeModal(); onConfirm(); };
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+}
+
 // ── Summary ────────────────────────────────────────────────────────────────────
 function updateSummary() {
   let debits = 0, credits = 0;
   filtered.forEach(t => {
-    if (t.transaction_type === 'debit')  debits  += parseFloat(t.amount);
-    else                                  credits += parseFloat(t.amount);
+    if (t.transaction_type === 'debit') debits  += parseFloat(t.amount);
+    else                                credits += parseFloat(t.amount);
   });
   document.getElementById('s-count').textContent   = filtered.length;
   document.getElementById('s-debits').textContent  = formatCLP(debits);
@@ -297,21 +397,26 @@ function updateSummary() {
 }
 
 // ── Export ─────────────────────────────────────────────────────────────────────
-function exportFile(fmt) {
-  const bank   = document.getElementById('f-bank').value;
-  const from   = document.getElementById('f-from').value;
-  const to     = document.getElementById('f-to').value;
+async function exportFile(fmt) {
+  const bank = document.getElementById('f-bank').value;
+  const from = document.getElementById('f-from').value;
+  const to   = document.getElementById('f-to').value;
   const params = new URLSearchParams();
   if (bank) params.set('bank_source', bank);
   if (from) params.set('date_from', from);
   if (to)   params.set('date_to', to);
 
-  const ext  = fmt === 'csv' ? 'csv' : 'excel';
-  const url  = `/reports/export/${ext}?${params}`;
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `gastos_${new Date().toISOString().slice(0,10)}.${fmt === 'csv' ? 'csv' : 'xlsx'}`;
+  const ext = fmt === 'csv' ? 'csv' : 'excel';
+  const res = await apiFetch(`/reports/export/${ext}?${params}`);
+  if (!res.ok) { setStatus('⚠ Error al exportar', true); return; }
+  const blob = await res.blob();
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href: url,
+    download: `gastos_${new Date().toISOString().slice(0,10)}.${fmt === 'csv' ? 'csv' : 'xlsx'}`,
+  });
   a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── Utils ──────────────────────────────────────────────────────────────────────
@@ -320,7 +425,7 @@ function formatCLP(n) {
 }
 
 function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function setStatus(msg, isErr = false) {
