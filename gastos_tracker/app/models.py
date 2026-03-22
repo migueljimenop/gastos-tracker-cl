@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
-from sqlalchemy import String, Numeric, DateTime, ForeignKey, Enum, Text, Boolean
+from sqlalchemy import String, Numeric, DateTime, ForeignKey, Enum, Text, Boolean, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 
@@ -18,6 +18,11 @@ class User(Base):
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+    categories: Mapped[List["Category"]] = relationship(back_populates="user")
+    transactions: Mapped[List["Transaction"]] = relationship(back_populates="user")
+    budgets: Mapped[List["Budget"]] = relationship(back_populates="user")
+    audit_logs: Mapped[List["AuditLog"]] = relationship(back_populates="user")
+
 
 class BankSource(str, enum.Enum):
     SANTANDER = "santander"
@@ -32,12 +37,15 @@ class TransactionType(str, enum.Enum):
 
 class Category(Base):
     __tablename__ = "categories"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_categories_user_name"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
     keywords: Mapped[str] = mapped_column(Text, default="")  # comma-separated keywords for auto-categorization
     color: Mapped[str] = mapped_column(String(7), default="#6366f1")  # hex color for UI
 
+    user: Mapped["User"] = relationship(back_populates="categories")
     transactions: Mapped[List["Transaction"]] = relationship(back_populates="category")
     budgets: Mapped[List["Budget"]] = relationship(back_populates="category")
 
@@ -49,6 +57,7 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     description: Mapped[str] = mapped_column(String(500), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
@@ -58,6 +67,7 @@ class Transaction(Base):
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     category_id: Mapped[Optional[int]] = mapped_column(ForeignKey("categories.id"), nullable=True)
+    user: Mapped["User"] = relationship(back_populates="transactions")
     category: Mapped[Optional["Category"]] = relationship(back_populates="transactions")
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -65,10 +75,27 @@ class Transaction(Base):
 
 class Budget(Base):
     __tablename__ = "budgets"
+    __table_args__ = (UniqueConstraint("user_id", "category_id", name="uq_budgets_user_category"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"), nullable=False)
     monthly_limit: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     alert_threshold: Mapped[float] = mapped_column(default=0.8)  # alert at 80% by default
 
+    user: Mapped["User"] = relationship(back_populates="budgets")
     category: Mapped["Category"] = relationship(back_populates="budgets")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    action: Mapped[str] = mapped_column(String(100), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    entity_id: Mapped[Optional[int]] = mapped_column(nullable=True)
+    details: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    user: Mapped[Optional["User"]] = relationship(back_populates="audit_logs")

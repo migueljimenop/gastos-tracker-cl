@@ -4,16 +4,21 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import BankSource, Transaction
+from app.models import BankSource, Transaction, User
 from app.schemas import ScrapeRequest, ScrapeResult
 from app.scrapers import SantanderScraper, FalabellaScraper
+from app.services.audit import record_audit_event
 from app.services.categorizer import auto_categorize
 
 router = APIRouter(prefix="/scraper", tags=["scraper"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("/run", response_model=ScrapeResult)
-async def run_scraper(request: ScrapeRequest, db: Session = Depends(get_db)):
+async def run_scraper(
+    request: ScrapeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     errors: list[str] = []
     raw_transactions = []
 
@@ -42,12 +47,20 @@ async def run_scraper(request: ScrapeRequest, db: Session = Depends(get_db)):
     new_count = 0
     for raw in raw_transactions:
         if raw.external_id:
-            exists = db.query(Transaction).filter(Transaction.external_id == raw.external_id).first()
+            exists = (
+                db.query(Transaction)
+                .filter(
+                    Transaction.user_id == current_user.id,
+                    Transaction.external_id == raw.external_id,
+                )
+                .first()
+            )
             if exists:
                 continue
 
-        category_id = auto_categorize(raw.description, db)
+        category_id = auto_categorize(raw.description, db, current_user.id)
         tx = Transaction(
+            user_id=current_user.id,
             date=raw.date,
             description=raw.description,
             amount=raw.amount,
@@ -59,6 +72,22 @@ async def run_scraper(request: ScrapeRequest, db: Session = Depends(get_db)):
         db.add(tx)
         new_count += 1
 
+    db.commit()
+
+    record_audit_event(
+        db,
+        action="scraper.completed",
+        entity_type="scraper",
+        entity_id=None,
+        user_id=current_user.id,
+        details={
+            "bank": request.bank,
+            "months_back": request.months_back,
+            "transactions_found": len(raw_transactions),
+            "transactions_new": new_count,
+            "errors": len(errors),
+        },
+    )
     db.commit()
 
     return ScrapeResult(

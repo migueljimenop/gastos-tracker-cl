@@ -15,8 +15,9 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.importers import SantanderImporter, FalabellaImporter
 from app.importers.base import BaseImporter
-from app.models import Transaction
+from app.models import Transaction, User
 from app.schemas import ImportResult
+from app.services.audit import record_audit_event
 from app.services.categorizer import auto_categorize
 
 router = APIRouter(prefix="/import", tags=["import"], dependencies=[Depends(get_current_user)])
@@ -29,6 +30,7 @@ async def _import_file(
     importer: BaseImporter,
     bank_label: str,
     db: Session,
+    current_user: User,
 ) -> ImportResult:
     if file.size and file.size > _MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="El archivo supera el límite de 10 MB")
@@ -51,14 +53,22 @@ async def _import_file(
     for raw in raw_transactions:
         # Deduplicate by external_id
         if raw.external_id:
-            exists = db.query(Transaction).filter(Transaction.external_id == raw.external_id).first()
+            exists = (
+                db.query(Transaction)
+                .filter(
+                    Transaction.user_id == current_user.id,
+                    Transaction.external_id == raw.external_id,
+                )
+                .first()
+            )
             if exists:
                 skipped_count += 1
                 continue
 
         try:
-            category_id = auto_categorize(raw.description, db)
+            category_id = auto_categorize(raw.description, db, current_user.id)
             tx = Transaction(
+                user_id=current_user.id,
                 date=raw.date,
                 description=raw.description,
                 amount=raw.amount,
@@ -72,6 +82,23 @@ async def _import_file(
         except Exception as exc:
             errors.append(f"Error al guardar '{raw.description}': {exc}")
 
+    db.commit()
+
+    record_audit_event(
+        db,
+        action="import.completed",
+        entity_type="import",
+        entity_id=None,
+        user_id=current_user.id,
+        details={
+            "bank": bank_label,
+            "filename": file.filename or "upload",
+            "transactions_found": len(raw_transactions),
+            "transactions_new": new_count,
+            "transactions_skipped": skipped_count,
+            "errors": len(errors),
+        },
+    )
     db.commit()
 
     return ImportResult(
@@ -88,13 +115,15 @@ async def _import_file(
 async def import_santander(
     file: UploadFile = File(..., description="Archivo de cartola exportado desde banco.santander.cl (.xlsx o .csv)"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    return await _import_file(file, SantanderImporter(), "santander", db)
+    return await _import_file(file, SantanderImporter(), "santander", db, current_user)
 
 
 @router.post("/falabella", response_model=ImportResult, summary="Importar cartola Falabella CMR")
 async def import_falabella(
     file: UploadFile = File(..., description="Archivo de cartola exportado desde falabella.com CMR (.xlsx o .csv)"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    return await _import_file(file, FalabellaImporter(), "falabella", db)
+    return await _import_file(file, FalabellaImporter(), "falabella", db, current_user)

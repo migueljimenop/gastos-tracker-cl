@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from app.models import Budget, Category, User
 
 
 def _create_category(client: TestClient, name: str = "Comida") -> int:
@@ -75,3 +76,22 @@ def test_budget_alert_triggered(client: TestClient):
     assert alerts[0]["category_name"] == "Transporte"
     assert alerts[0]["percentage_used"] == 60.0
     assert alerts[0]["is_exceeded"] is False
+
+
+def test_list_budgets_excludes_other_user_data(client: TestClient, db):
+    other_user = User(username="other", hashed_password="x", is_active=True, is_superuser=False)
+    db.add(other_user)
+    db.commit()
+    db.refresh(other_user)
+
+    category = Category(user_id=other_user.id, name="Privada")
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+
+    db.add(Budget(user_id=other_user.id, category_id=category.id, monthly_limit="100000", alert_threshold=0.8))
+    db.commit()
+
+    resp = client.get("/budgets/")
+    assert resp.status_code == 200
+    assert resp.json() == []

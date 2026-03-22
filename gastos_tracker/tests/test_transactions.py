@@ -1,4 +1,7 @@
 from fastapi.testclient import TestClient
+from datetime import datetime
+from decimal import Decimal
+from app.models import Transaction, TransactionType, BankSource, User
 
 
 DEBIT_TX = {
@@ -90,3 +93,26 @@ def test_auto_categorize_on_create(client: TestClient):
     resp = client.post("/transactions/", json=DEBIT_TX)
     assert resp.status_code == 201
     assert resp.json()["category"]["name"] == "Supermercado"
+
+
+def test_list_transactions_excludes_other_user_data(client: TestClient, db):
+    other_user = User(username="other", hashed_password="x", is_active=True, is_superuser=False)
+    db.add(other_user)
+    db.commit()
+    db.refresh(other_user)
+
+    db.add(
+        Transaction(
+            user_id=other_user.id,
+            date=datetime(2026, 3, 15, 10, 0, 0),
+            description="Compra externa",
+            amount=Decimal("35000"),
+            transaction_type=TransactionType.DEBIT,
+            bank_source=BankSource.SANTANDER,
+        )
+    )
+    db.commit()
+
+    resp = client.get("/transactions/")
+    assert resp.status_code == 200
+    assert resp.json() == []

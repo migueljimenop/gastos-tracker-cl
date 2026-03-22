@@ -7,7 +7,7 @@ from app.models import Budget, Transaction, TransactionType
 from app.schemas import BudgetAlert
 
 
-def get_budget_alerts(db: Session) -> list[BudgetAlert]:
+def get_budget_alerts(db: Session, user_id: int) -> list[BudgetAlert]:
     """
     For the current calendar month, calculate spending per category
     and return budgets that have reached or exceeded their alert threshold.
@@ -15,13 +15,14 @@ def get_budget_alerts(db: Session) -> list[BudgetAlert]:
     now = datetime.now()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    budgets = db.query(Budget).all()
+    budgets = db.query(Budget).filter(Budget.user_id == user_id).all()
     alerts: list[BudgetAlert] = []
 
     for budget in budgets:
         spent = (
             db.query(func.sum(Transaction.amount))
             .filter(
+                Transaction.user_id == user_id,
                 Transaction.category_id == budget.category_id,
                 Transaction.transaction_type == TransactionType.DEBIT,
                 Transaction.date >= month_start,

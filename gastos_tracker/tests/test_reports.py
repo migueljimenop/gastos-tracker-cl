@@ -1,5 +1,6 @@
 import datetime
 from fastapi.testclient import TestClient
+from app.models import Transaction, TransactionType, BankSource, User
 
 
 def _post_tx(client: TestClient, description: str, amount: str, tx_type: str, day: int = 15, cat_id: int | None = None):
@@ -70,3 +71,27 @@ def test_export_csv_empty(client: TestClient):
     resp = client.get("/reports/export/csv")
     assert resp.status_code == 200
     assert resp.text == ""
+
+
+def test_monthly_report_excludes_other_user_transactions(client: TestClient, db):
+    other_user = User(username="other", hashed_password="x", is_active=True, is_superuser=False)
+    db.add(other_user)
+    db.commit()
+    db.refresh(other_user)
+
+    db.add(
+        Transaction(
+            user_id=other_user.id,
+            date=datetime.datetime(2026, 3, 15),
+            description="Compra externa",
+            amount="30000",
+            transaction_type=TransactionType.DEBIT,
+            bank_source=BankSource.SANTANDER,
+        )
+    )
+    db.commit()
+
+    resp = client.get("/reports/monthly?year=2026&month=3")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert float(data["total_spent"]) == 0.0

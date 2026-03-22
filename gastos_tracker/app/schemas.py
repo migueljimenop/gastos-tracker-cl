@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Optional
 from pydantic import BaseModel, Field
 from app.models import BankSource, TransactionType
 
@@ -162,3 +162,17 @@ class ScrapeResult(BaseModel):
     transactions_found: int
     transactions_new: int
     errors: list[str] = []
+
+
+# ── Audit ─────────────────────────────────────────────────────────────────────
+
+class AuditLogOut(BaseModel):
+    id: int
+    user_id: Optional[int]
+    action: str
+    entity_type: str
+    entity_id: Optional[int]
+    details: dict[str, Any]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

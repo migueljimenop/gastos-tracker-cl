@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+from app.models import Category, User
 
 
 def test_list_categories_empty(client: TestClient):
@@ -53,3 +54,17 @@ def test_delete_category(client: TestClient):
 def test_delete_nonexistent_category(client: TestClient):
     response = client.delete("/categories/9999")
     assert response.status_code == 404
+
+
+def test_list_categories_excludes_other_user_data(client: TestClient, db):
+    other_user = User(username="other", hashed_password="x", is_active=True, is_superuser=False)
+    db.add(other_user)
+    db.commit()
+    db.refresh(other_user)
+
+    db.add(Category(user_id=other_user.id, name="Privada"))
+    db.commit()
+
+    response = client.get("/categories/")
+    assert response.status_code == 200
+    assert response.json() == []

@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from app.database import create_tables
-from app.routers import categories, transactions, budgets, reports, scraper, importer, auth
+from app.routers import admin, categories, transactions, budgets, reports, scraper, importer, auth
 
 _STATIC = Path(__file__).parent / "static"
 
@@ -32,6 +32,7 @@ app.include_router(budgets.router)
 app.include_router(reports.router)
 app.include_router(importer.router)
 app.include_router(scraper.router)
+app.include_router(admin.router)
 
 
 @app.get("/ui", include_in_schema=False)

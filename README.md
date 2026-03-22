@@ -62,6 +62,33 @@ El comando:
 - crea el usuario si no existe
 - o actualiza un usuario existente para dejarlo activo y con privilegios de superusuario
 
+## Administracion y auditoria
+
+Los endpoints administrativos usan control real de privilegios mediante `is_superuser`.
+
+Actualmente existe un endpoint de auditoria solo para administradores:
+
+```bash
+GET /admin/audit-logs
+```
+
+Filtros soportados:
+
+- `user_id`
+- `action`
+- `entity_type`
+- `limit`
+- `offset`
+
+La aplicacion registra eventos de auditoria para:
+
+- registro y login de usuarios
+- CRUD de categorias, transacciones y presupuestos
+- exportaciones CSV y Excel
+- importaciones bancarias
+- ejecuciones de scraping
+- consultas administrativas de auditoria
+
 ## Dependencias
 
 Se ajustaron algunas versiones para compatibilidad con el entorno actual de Python del workspace:
