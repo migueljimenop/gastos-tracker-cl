@@ -7,8 +7,11 @@ if Santander changes their portal layout.
 
 Portal: https://banco.santander.cl
 """
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import Optional
 
 from app.models import BankSource, TransactionType
 from app.scrapers.base import BaseScraper, RawTransaction
@@ -67,7 +70,7 @@ class SantanderScraper(BaseScraper):
 
         return transactions
 
-    async def _parse_row(self, row, since_date: datetime) -> RawTransaction | None:
+    async def _parse_row(self, row, since_date: datetime) -> Optional[RawTransaction]:
         """Parse a single table row into a RawTransaction. Adjust selectors as needed."""
         try:
             cells = await row.query_selector_all("td")

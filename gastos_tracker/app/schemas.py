@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional
 from pydantic import BaseModel, Field
 from app.models import BankSource, TransactionType
 
@@ -13,9 +16,9 @@ class CategoryCreate(BaseModel):
 
 
 class CategoryUpdate(BaseModel):
-    name: str | None = None
-    keywords: str | None = None
-    color: str | None = None
+    name: Optional[str] = None
+    keywords: Optional[str] = None
+    color: Optional[str] = None
 
 
 class CategoryOut(BaseModel):
@@ -35,14 +38,14 @@ class TransactionCreate(BaseModel):
     amount: Decimal = Field(gt=0)
     transaction_type: TransactionType
     bank_source: BankSource
-    external_id: str | None = None
-    notes: str | None = None
-    category_id: int | None = None
+    external_id: Optional[str] = None
+    notes: Optional[str] = None
+    category_id: Optional[int] = None
 
 
 class TransactionUpdate(BaseModel):
-    category_id: int | None = None
-    notes: str | None = None
+    category_id: Optional[int] = None
+    notes: Optional[str] = None
 
 
 class TransactionOut(BaseModel):
@@ -52,9 +55,9 @@ class TransactionOut(BaseModel):
     amount: Decimal
     transaction_type: TransactionType
     bank_source: BankSource
-    external_id: str | None
-    notes: str | None
-    category: CategoryOut | None
+    external_id: Optional[str]
+    notes: Optional[str]
+    category: Optional[CategoryOut]
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -69,8 +72,8 @@ class BudgetCreate(BaseModel):
 
 
 class BudgetUpdate(BaseModel):
-    monthly_limit: Decimal | None = Field(default=None, gt=0)
-    alert_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+    monthly_limit: Optional[Decimal] = Field(default=None, gt=0)
+    alert_threshold: Optional[float] = Field(default=None, ge=0.0, le=1.0)
 
 
 class BudgetOut(BaseModel):
@@ -86,7 +89,7 @@ class BudgetOut(BaseModel):
 # ── Reports ───────────────────────────────────────────────────────────────────
 
 class CategorySummary(BaseModel):
-    category_id: int | None
+    category_id: Optional[int]
     category_name: str
     total: Decimal
     count: int

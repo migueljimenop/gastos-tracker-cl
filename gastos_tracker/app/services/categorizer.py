@@ -1,8 +1,11 @@
+from __future__ import annotations
+
+from typing import Optional
 from sqlalchemy.orm import Session
 from app.models import Category
 
 
-def auto_categorize(description: str, db: Session) -> int | None:
+def auto_categorize(description: str, db: Session) -> Optional[int]:
     """
     Match a transaction description to a category using keyword matching.
     Returns the category_id of the best match, or None if no match found.

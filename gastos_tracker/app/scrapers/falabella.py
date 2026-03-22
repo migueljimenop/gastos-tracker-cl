@@ -7,8 +7,11 @@ if Falabella changes their portal layout.
 
 Portal: https://www.falabella.com/falabella-cl/myAccount/cmr
 """
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import Optional
 
 from app.models import BankSource, TransactionType
 from app.scrapers.base import BaseScraper, RawTransaction
@@ -65,7 +68,7 @@ class FalabellaScraper(BaseScraper):
 
         return transactions
 
-    async def _parse_row(self, row, since_date: datetime) -> RawTransaction | None:
+    async def _parse_row(self, row, since_date: datetime) -> Optional[RawTransaction]:
         """Parse a single movement row. Adjust selectors based on Falabella's actual HTML."""
         try:
             cells = await row.query_selector_all("td, [class*='cell']")

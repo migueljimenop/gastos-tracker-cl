@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 import io
 from datetime import datetime
+from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.models import Transaction
 
 
-def _get_transactions(db: Session, from_date: datetime | None, to_date: datetime | None):
+def _get_transactions(db: Session, from_date: Optional[datetime], to_date: Optional[datetime]):
     q = db.query(Transaction)
     if from_date:
         q = q.filter(Transaction.date >= from_date)
@@ -29,7 +32,7 @@ def _to_rows(transactions: list[Transaction]) -> list[dict]:
     ]
 
 
-def export_to_csv(db: Session, from_date: datetime | None, to_date: datetime | None) -> str:
+def export_to_csv(db: Session, from_date: Optional[datetime], to_date: Optional[datetime]) -> str:
     import csv
 
     transactions = _get_transactions(db, from_date, to_date)
@@ -45,7 +48,7 @@ def export_to_csv(db: Session, from_date: datetime | None, to_date: datetime | N
     return output.getvalue()
 
 
-def export_to_excel(db: Session, from_date: datetime | None, to_date: datetime | None) -> bytes:
+def export_to_excel(db: Session, from_date: Optional[datetime], to_date: Optional[datetime]) -> bytes:
     import pandas as pd
 
     transactions = _get_transactions(db, from_date, to_date)

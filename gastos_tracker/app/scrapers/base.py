@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional
 
 from app.models import BankSource, TransactionType
 
@@ -13,7 +16,7 @@ class RawTransaction:
     amount: Decimal
     transaction_type: TransactionType
     bank_source: BankSource
-    external_id: str | None = None
+    external_id: Optional[str] = None
 
 
 class BaseScraper(ABC):

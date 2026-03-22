@@ -41,6 +41,18 @@ class TestBaseHelpers:
         assert self.imp._parse_chilean_amount("") == Decimal("0")
         assert self.imp._parse_chilean_amount("-") == Decimal("0")
 
+    def test_parse_chilean_amount_accounting_parentheses(self):
+        """Formato contable Excel: (103.350) → 103350"""
+        assert self.imp._parse_chilean_amount("(103.350)") == Decimal("103350")
+
+    def test_parse_chilean_amount_accounting_suffix_paren(self):
+        """Variante con paréntesis al final: 103.350( → 103350"""
+        assert self.imp._parse_chilean_amount("103.350(") == Decimal("103350")
+
+    def test_parse_chilean_amount_accounting_with_dollar(self):
+        """Formato contable con símbolo: $ 103.350( → 103350"""
+        assert self.imp._parse_chilean_amount("$ 103.350(") == Decimal("103350")
+
     def test_parse_chilean_date_slash(self):
         from datetime import datetime
         dt = self.imp._parse_chilean_date("15/03/2026")

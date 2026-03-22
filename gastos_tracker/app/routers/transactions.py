@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from datetime import datetime
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -13,10 +16,10 @@ router = APIRouter(prefix="/transactions", tags=["transactions"], dependencies=[
 
 @router.get("/", response_model=list[TransactionOut])
 def list_transactions(
-    bank: BankSource | None = None,
-    category_id: int | None = None,
-    from_date: datetime | None = Query(default=None),
-    to_date: datetime | None = Query(default=None),
+    bank: Optional[BankSource] = None,
+    category_id: Optional[int] = None,
+    from_date: Optional[datetime] = Query(default=None),
+    to_date: Optional[datetime] = Query(default=None),
     limit: int = Query(default=100, le=1000),
     offset: int = 0,
     db: Session = Depends(get_db),

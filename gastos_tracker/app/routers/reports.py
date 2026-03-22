@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from datetime import datetime
+from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -23,8 +26,8 @@ def monthly_report(
 
 @router.get("/export/csv")
 def export_csv(
-    from_date: datetime | None = None,
-    to_date: datetime | None = None,
+    from_date: Optional[datetime] = None,
+    to_date: Optional[datetime] = None,
     db: Session = Depends(get_db),
 ):
     content = export_to_csv(db, from_date, to_date)
@@ -37,8 +40,8 @@ def export_csv(
 
 @router.get("/export/excel")
 def export_excel(
-    from_date: datetime | None = None,
-    to_date: datetime | None = None,
+    from_date: Optional[datetime] = None,
+    to_date: Optional[datetime] = None,
     db: Session = Depends(get_db),
 ):
     content = export_to_excel(db, from_date, to_date)

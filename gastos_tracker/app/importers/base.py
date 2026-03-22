@@ -42,11 +42,25 @@ class BaseImporter(ABC):
     def _parse_chilean_amount(raw: str) -> Decimal:
         """
         Convert Chilean-formatted number to Decimal.
-        Examples: '1.234.567' → 1234567 | '1.234,56' → 1234.56 | '35.000' → 35000
+        Examples:
+          '1.234.567'  → 1234567
+          '1.234,56'   → 1234.56
+          '35.000'     → 35000
+          '$ 35.000'   → 35000
+          '(35.000)'   → 35000   ← formato contable Excel para negativos
+          '35.000('    → 35000   ← variante de formato contable
+        Note: the sign is intentionally discarded; callers determine
+        DEBIT/CREDIT from the column (Cargo/Abono) the value came from.
         """
         cleaned = str(raw).strip().replace("$", "").replace(" ", "")
         if not cleaned or cleaned == "-":
             return Decimal("0")
+
+        # Handle accounting negative format: (35.000) or 35.000(
+        if cleaned.startswith("(") and cleaned.endswith(")"):
+            cleaned = cleaned[1:-1]
+        elif cleaned.endswith("("):
+            cleaned = cleaned[:-1]
 
         # Detect format: if there's a comma, treat it as decimal separator
         if "," in cleaned:
