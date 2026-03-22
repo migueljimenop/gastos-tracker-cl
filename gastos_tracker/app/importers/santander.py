@@ -42,11 +42,10 @@ class SantanderImporter(BaseImporter):
 
     def parse(self, content: bytes, filename: str) -> list[RawTransaction]:
         self._detect_extension(filename)
-        raw_df = self._read_dataframe(content, filename)
 
         # Santander files have metadata rows before the actual table header.
-        # We scan for the row that contains "Fecha" to find the real header.
-        header_row = self._find_header_row(raw_df)
+        # Scan for the row that contains "Fecha" to find the real header.
+        header_row = self._find_header_row_in_content(content, filename, {"fecha"})
         df = self._load_with_real_header(content, filename, header_row)
 
         # Normalize column names
@@ -146,10 +145,18 @@ class SantanderImporter(BaseImporter):
 
         lower = filename.lower()
         if lower.endswith(".csv"):
+            # Use skiprows + header=0 instead of header=N to avoid the C parser
+            # failing on metadata rows that have fewer columns than the data table.
             for encoding in ("latin-1", "utf-8", "cp1252"):
                 try:
                     import io
-                    return pd.read_csv(io.BytesIO(content), encoding=encoding, header=header_row, dtype=str)
+                    return pd.read_csv(
+                        io.BytesIO(content),
+                        encoding=encoding,
+                        skiprows=header_row,
+                        header=0,
+                        dtype=str,
+                    )
                 except Exception:
                     continue
         return pd.read_excel(BytesIO(content), header=header_row, dtype=str)

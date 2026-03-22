@@ -128,6 +128,23 @@ class TestSantanderImporter:
         abono = next(t for t in txs if "TRANSFERENCIA" in t.description)
         assert abono.transaction_type == TransactionType.CREDIT
 
+    def test_parse_xlsx_with_detalle_movimientos_header(self):
+        """Regression: real Santander xlsx has merged group headers before Fecha row."""
+        openpyxl = pytest.importorskip("openpyxl")
+        import io as _io
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["DETALLE DE MOVIMIENTOS", None, None, None, None, "SALDOS DIARIOS", None])
+        ws.append(["Fecha", "Descripción", "Cargo ($)", "Abono ($)", None, "Saldo ($)", None])
+        ws.append(["15/03/2026", "COMPRA SUPERMERCADO JUMBO", "45.000", None, None, "1.200.000", None])
+        ws.append(["20/03/2026", "ABONO SUELDO EMPRESA SA", None, "2.500.000", None, "3.700.000", None])
+        buf = _io.BytesIO()
+        wb.save(buf)
+        txs = self.importer.parse(buf.getvalue(), "cartola.xlsx")
+        assert len(txs) == 2
+        assert any("JUMBO" in t.description for t in txs)
+        assert any("SUELDO" in t.description for t in txs)
+
     def test_unsupported_extension_raises(self):
         with pytest.raises(ValueError):
             self.importer.parse(b"data", "cartola.pdf")

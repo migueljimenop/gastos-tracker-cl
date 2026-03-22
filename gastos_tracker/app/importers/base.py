@@ -72,6 +72,38 @@ class BaseImporter(ABC):
         raise ValueError(f"No se puede interpretar la fecha: '{raw}'")
 
     @staticmethod
+    def _find_header_row_in_content(content: bytes, filename: str, search_terms: set[str]) -> int:
+        """
+        Return the 0-indexed file row whose first matching cell equals one of search_terms.
+        For CSV: scans lines without pandas (avoids column-count errors from metadata rows).
+        For Excel: reads with header=None so row indices match file row numbers.
+        Returns 0 if not found (assume first row is the header).
+        """
+        import pandas as pd
+        from io import BytesIO
+
+        lower = filename.lower()
+        if lower.endswith(".csv"):
+            for encoding in ("latin-1", "utf-8", "cp1252"):
+                try:
+                    text = content.decode(encoding)
+                    for i, line in enumerate(text.splitlines()):
+                        for cell in line.split(","):
+                            if cell.strip().strip('"').lower() in search_terms:
+                                return i
+                    return 0
+                except Exception:
+                    continue
+            return 0
+        else:
+            df = pd.read_excel(BytesIO(content), dtype=str, header=None)
+            for i, row in df.iterrows():
+                for cell in row.values:
+                    if str(cell).strip().lower() in search_terms:
+                        return int(i)
+            return 0
+
+    @staticmethod
     def _read_dataframe(content: bytes, filename: str):
         """Load content into a pandas DataFrame, auto-detecting CSV vs Excel."""
         import pandas as pd
