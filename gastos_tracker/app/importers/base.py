@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from io import BytesIO
+from typing import Optional
 
 from app.scrapers.base import RawTransaction
 
@@ -61,14 +62,20 @@ class BaseImporter(ABC):
             raise ValueError(f"No se puede interpretar el monto: '{raw}'")
 
     @staticmethod
-    def _parse_chilean_date(raw: str) -> datetime:
-        """Parse dates in DD/MM/YYYY, DD-MM-YYYY or YYYY-MM-DD format."""
+    def _parse_chilean_date(raw: str, year: Optional[int] = None) -> datetime:
+        """Parse dates in DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD or DD/MM (with year) format."""
         raw = str(raw).strip()
         for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d", "%d/%m/%y"):
             try:
                 return datetime.strptime(raw, fmt)
             except ValueError:
                 continue
+        if year is not None:
+            for fmt in ("%d/%m", "%d-%m"):
+                try:
+                    return datetime.strptime(raw, fmt).replace(year=year)
+                except ValueError:
+                    continue
         raise ValueError(f"No se puede interpretar la fecha: '{raw}'")
 
     @staticmethod

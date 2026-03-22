@@ -16,6 +16,7 @@ The importer searches flexibly for matching column names.
 """
 from __future__ import annotations
 
+import re
 import pandas as pd
 
 from app.importers.base import BaseImporter
@@ -26,8 +27,8 @@ from app.scrapers.base import RawTransaction
 # Possible column name variants Santander uses
 _DATE_COLS = {"fecha", "date"}
 _DESC_COLS = {"descripción", "descripcion", "glosa", "detalle", "description"}
-_DEBIT_COLS = {"cargo ($)", "cargo", "cargos", "débito", "debito", "debit"}
-_CREDIT_COLS = {"abono ($)", "abono", "abonos", "crédito", "credito", "credit"}
+_DEBIT_COLS = {"cargo ($)", "cargo", "cargos", "débito", "debito", "debit", "cheques y otros cargos"}
+_CREDIT_COLS = {"abono ($)", "abono", "abonos", "crédito", "credito", "credit", "depositos y otros abonos"}
 _AMOUNT_COLS = {"monto", "amount", "importe"}  # fallback when there's only one amount column
 
 
@@ -70,6 +71,10 @@ class SantanderImporter(BaseImporter):
                 f"Columnas detectadas: {cols}"
             )
 
+        # Extract year from filename for partial-date rows (e.g. "02/03" without year)
+        year_match = re.search(r'\b(20\d{2})\b', filename)
+        filename_year = int(year_match.group(1)) if year_match else None
+
         transactions: list[RawTransaction] = []
 
         for _, row in df.iterrows():
@@ -83,7 +88,7 @@ class SantanderImporter(BaseImporter):
                 continue
 
             try:
-                date = self._parse_chilean_date(date_raw)
+                date = self._parse_chilean_date(date_raw, year=filename_year)
             except ValueError:
                 continue  # Skip non-date rows (e.g. trailing summary rows)
 
