@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gastos Tracker CL</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .card { @apply bg-white rounded-xl shadow-sm border border-gray-100 p-5; }
+    .btn  { @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors cursor-pointer; }
+    .tag-debit  { @apply inline-block px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-700; }
+    .tag-credit { @apply inline-block px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700; }
+    .tag-bank   { @apply inline-block px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-600; }
+    thead th    { @apply sticky top-0 bg-gray-50 px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide; }
+    tbody td    { @apply px-4 py-3 text-sm text-gray-700 border-b border-gray-50; }
+    tbody tr:hover td { @apply bg-gray-50; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-gray-800">
+
+<!-- Header -->
+<header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+  <div class="flex items-center gap-3">
+    <span class="text-2xl">💰</span>
+    <h1 class="text-xl font-bold text-gray-900">Gastos Tracker CL</h1>
+  </div>
+  <span id="status-msg" class="text-sm text-gray-400"></span>
+</header>
+
+<main class="max-w-7xl mx-auto px-6 py-6 space-y-6">
+
+  <!-- Import -->
+  <div class="card">
+    <h2 class="font-semibold text-gray-700 mb-4">Importar Cartola</h2>
+    <div class="flex flex-wrap gap-4">
+      <!-- Santander -->
+      <label class="flex flex-col items-center gap-2 border-2 border-dashed border-gray-200 rounded-xl px-8 py-5 cursor-pointer hover:border-red-400 hover:bg-red-50 transition-colors group">
+        <span class="text-3xl">🏦</span>
+        <span class="font-semibold text-gray-700 group-hover:text-red-700">Santander</span>
+        <span class="text-xs text-gray-400">.xlsx / .csv</span>
+        <input id="file-santander" type="file" accept=".xlsx,.csv,.xls" class="hidden" onchange="uploadFile('santander', this)" />
+      </label>
+      <!-- Falabella -->
+      <label class="flex flex-col items-center gap-2 border-2 border-dashed border-gray-200 rounded-xl px-8 py-5 cursor-pointer hover:border-green-400 hover:bg-green-50 transition-colors group">
+        <span class="text-3xl">🛍️</span>
+        <span class="font-semibold text-gray-700 group-hover:text-green-700">Falabella CMR</span>
+        <span class="text-xs text-gray-400">.xls / .xlsx / .csv</span>
+        <input id="file-falabella" type="file" accept=".xls,.xlsx,.csv" class="hidden" onchange="uploadFile('falabella', this)" />
+      </label>
+      <!-- Upload result -->
+      <div id="upload-result" class="flex items-center text-sm text-gray-500 italic"></div>
+    </div>
+  </div>
+
+  <!-- Summary cards -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div class="card text-center">
+      <p class="text-xs text-gray-400 uppercase font-semibold mb-1">Transacciones</p>
+      <p id="s-count" class="text-2xl font-bold text-gray-800">—</p>
+    </div>
+    <div class="card text-center">
+      <p class="text-xs text-gray-400 uppercase font-semibold mb-1">Total Cargos</p>
+      <p id="s-debits" class="text-2xl font-bold text-red-600">—</p>
+    </div>
+    <div class="card text-center">
+      <p class="text-xs text-gray-400 uppercase font-semibold mb-1">Total Abonos</p>
+      <p id="s-credits" class="text-2xl font-bold text-green-600">—</p>
+    </div>
+    <div class="card text-center">
+      <p class="text-xs text-gray-400 uppercase font-semibold mb-1">Balance</p>
+      <p id="s-balance" class="text-2xl font-bold text-gray-800">—</p>
+    </div>
+  </div>
+
+  <!-- Filters + Export -->
+  <div class="card flex flex-wrap items-end gap-4">
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-semibold text-gray-500 uppercase">Banco</label>
+      <select id="f-bank" onchange="applyFilters()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <option value="">Todos</option>
+        <option value="santander">Santander</option>
+        <option value="falabella">Falabella</option>
+      </select>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-semibold text-gray-500 uppercase">Tipo</label>
+      <select id="f-type" onchange="applyFilters()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <option value="">Todos</option>
+        <option value="debit">Cargos</option>
+        <option value="credit">Abonos</option>
+      </select>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-semibold text-gray-500 uppercase">Desde</label>
+      <input id="f-from" type="date" onchange="applyFilters()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white" />
+    </div>
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-semibold text-gray-500 uppercase">Hasta</label>
+      <input id="f-to" type="date" onchange="applyFilters()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white" />
+    </div>
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-semibold text-gray-500 uppercase">Buscar</label>
+      <input id="f-search" type="text" placeholder="descripción…" oninput="applyFilters()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white w-48" />
+    </div>
+    <div class="ml-auto flex gap-2">
+      <button onclick="exportFile('csv')" class="btn bg-gray-100 hover:bg-gray-200 text-gray-700">
+        ⬇ CSV
+      </button>
+      <button onclick="exportFile('excel')" class="btn bg-emerald-600 hover:bg-emerald-700 text-white">
+        ⬇ Excel
+      </button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card p-0 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[640px]">
+        <thead>
+          <tr>
+            <th onclick="sortBy('date')" class="cursor-pointer select-none">Fecha <span id="sort-date"></span></th>
+            <th>Descripción</th>
+            <th onclick="sortBy('transaction_type')" class="cursor-pointer select-none">Tipo <span id="sort-transaction_type"></span></th>
+            <th onclick="sortBy('amount')" class="cursor-pointer select-none text-right">Monto <span id="sort-amount"></span></th>
+            <th>Banco</th>
+            <th>Categoría</th>
+          </tr>
+        </thead>
+        <tbody id="tx-body">
+          <tr><td colspan="6" class="text-center py-12 text-gray-400 italic">Cargando transacciones…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="pagination" class="px-4 py-3 border-t border-gray-100 flex items-center justify-between text-sm text-gray-500"></div>
+  </div>
+
+</main>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let allTx = [];
+let filtered = [];
+let sortField = 'date';
+let sortDir = -1; // -1 = desc, 1 = asc
+const PAGE = 100;
+let page = 0;
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+window.onload = () => loadTransactions();
+
+// ── Load transactions from API ─────────────────────────────────────────────────
+async function loadTransactions() {
+  try {
+    const res = await fetch('/transactions/?limit=2000');
+    if (!res.ok) throw new Error('Error ' + res.status);
+    allTx = await res.json();
+    applyFilters();
+    setStatus('');
+  } catch (e) {
+    setStatus('⚠ No se pudo conectar con la API', true);
+  }
+}
+
+// ── Upload file ────────────────────────────────────────────────────────────────
+async function uploadFile(bank, input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const el = document.getElementById('upload-result');
+  el.innerHTML = `<span class="text-blue-500">Subiendo ${file.name}…</span>`;
+
+  const form = new FormData();
+  form.append('file', file);
+
+  try {
+    const res = await fetch(`/import/${bank}`, { method: 'POST', body: form });
+    const data = await res.json();
+
+    if (!res.ok) {
+      el.innerHTML = `<span class="text-red-500">⚠ ${data.detail || 'Error al importar'}</span>`;
+      return;
+    }
+    el.innerHTML = `<span class="text-green-600">✓ ${data.transactions_new} nuevas, ${data.transactions_skipped} duplicadas</span>`;
+    input.value = '';
+    await loadTransactions();
+  } catch (e) {
+    el.innerHTML = `<span class="text-red-500">⚠ Error de red</span>`;
+  }
+}
+
+// ── Filters ────────────────────────────────────────────────────────────────────
+function applyFilters() {
+  const bank   = document.getElementById('f-bank').value;
+  const type   = document.getElementById('f-type').value;
+  const from   = document.getElementById('f-from').value;
+  const to     = document.getElementById('f-to').value;
+  const search = document.getElementById('f-search').value.toLowerCase();
+
+  filtered = allTx.filter(t => {
+    if (bank   && t.bank_source !== bank) return false;
+    if (type   && t.transaction_type !== type) return false;
+    if (search && !t.description.toLowerCase().includes(search)) return false;
+    const d = t.date.slice(0, 10);
+    if (from && d < from) return false;
+    if (to   && d > to)   return false;
+    return true;
+  });
+
+  page = 0;
+  sortTable();
+  updateSummary();
+}
+
+// ── Sort ───────────────────────────────────────────────────────────────────────
+function sortBy(field) {
+  if (sortField === field) sortDir *= -1;
+  else { sortField = field; sortDir = -1; }
+  sortTable();
+}
+
+function sortTable() {
+  filtered.sort((a, b) => {
+    let va = a[sortField], vb = b[sortField];
+    if (sortField === 'amount') { va = parseFloat(va); vb = parseFloat(vb); }
+    if (va < vb) return -sortDir;
+    if (va > vb) return  sortDir;
+    return 0;
+  });
+  // Update sort indicators
+  ['date', 'transaction_type', 'amount'].forEach(f => {
+    const el = document.getElementById('sort-' + f);
+    if (el) el.textContent = f === sortField ? (sortDir === -1 ? ' ↓' : ' ↑') : '';
+  });
+  renderPage();
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────────
+function renderPage() {
+  const tbody = document.getElementById('tx-body');
+  const start = page * PAGE;
+  const slice = filtered.slice(start, start + PAGE);
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-12 text-gray-400 italic">Sin transacciones</td></tr>`;
+    document.getElementById('pagination').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = slice.map(t => {
+    const date  = t.date.slice(0, 10);
+    const isDebit = t.transaction_type === 'debit';
+    const amount = formatCLP(t.amount);
+    const bank  = t.bank_source === 'santander' ? '🏦 Santander' : '🛍️ Falabella';
+    const cat   = t.category ? `<span class="text-xs text-gray-500">${t.category.name}</span>` : '<span class="text-xs text-gray-300">—</span>';
+    return `
+      <tr>
+        <td class="whitespace-nowrap font-mono text-xs text-gray-500">${date}</td>
+        <td class="max-w-xs truncate" title="${escHtml(t.description)}">${escHtml(t.description)}</td>
+        <td><span class="${isDebit ? 'tag-debit' : 'tag-credit'}">${isDebit ? 'Cargo' : 'Abono'}</span></td>
+        <td class="text-right font-mono font-medium ${isDebit ? 'text-red-600' : 'text-green-600'}">${isDebit ? '-' : '+'}${amount}</td>
+        <td><span class="tag-bank">${bank}</span></td>
+        <td>${cat}</td>
+      </tr>`;
+  }).join('');
+
+  const total = filtered.length;
+  const end   = Math.min(start + PAGE, total);
+  document.getElementById('pagination').innerHTML = `
+    <span>${start + 1}–${end} de ${total} transacciones</span>
+    <div class="flex gap-2">
+      <button onclick="changePage(-1)" ${page === 0 ? 'disabled' : ''} class="btn bg-gray-100 hover:bg-gray-200 text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed">← Anterior</button>
+      <button onclick="changePage(1)"  ${end >= total ? 'disabled' : ''} class="btn bg-gray-100 hover:bg-gray-200 text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed">Siguiente →</button>
+    </div>`;
+}
+
+function changePage(dir) {
+  const maxPage = Math.ceil(filtered.length / PAGE) - 1;
+  page = Math.max(0, Math.min(maxPage, page + dir));
+  renderPage();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Summary ────────────────────────────────────────────────────────────────────
+function updateSummary() {
+  let debits = 0, credits = 0;
+  filtered.forEach(t => {
+    if (t.transaction_type === 'debit')  debits  += parseFloat(t.amount);
+    else                                  credits += parseFloat(t.amount);
+  });
+  document.getElementById('s-count').textContent   = filtered.length;
+  document.getElementById('s-debits').textContent  = formatCLP(debits);
+  document.getElementById('s-credits').textContent = formatCLP(credits);
+  const bal = credits - debits;
+  const balEl = document.getElementById('s-balance');
+  balEl.textContent = (bal >= 0 ? '+' : '') + formatCLP(bal);
+  balEl.className = `text-2xl font-bold ${bal >= 0 ? 'text-green-600' : 'text-red-600'}`;
+}
+
+// ── Export ─────────────────────────────────────────────────────────────────────
+function exportFile(fmt) {
+  const bank   = document.getElementById('f-bank').value;
+  const from   = document.getElementById('f-from').value;
+  const to     = document.getElementById('f-to').value;
+  const params = new URLSearchParams();
+  if (bank) params.set('bank_source', bank);
+  if (from) params.set('date_from', from);
+  if (to)   params.set('date_to', to);
+
+  const ext  = fmt === 'csv' ? 'csv' : 'excel';
+  const url  = `/reports/export/${ext}?${params}`;
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `gastos_${new Date().toISOString().slice(0,10)}.${fmt === 'csv' ? 'csv' : 'xlsx'}`;
+  a.click();
+}
+
+// ── Utils ──────────────────────────────────────────────────────────────────────
+function formatCLP(n) {
+  return '$\u00a0' + Math.abs(Math.round(n)).toLocaleString('es-CL');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function setStatus(msg, isErr = false) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className   = isErr ? 'text-sm text-red-500' : 'text-sm text-gray-400';
+}
+</script>
+
+</body>
+</html>
