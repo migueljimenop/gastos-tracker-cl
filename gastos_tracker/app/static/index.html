@@ -151,7 +151,7 @@ window.onload = () => loadTransactions();
 // ── Load transactions from API ─────────────────────────────────────────────────
 async function loadTransactions() {
   try {
-    const res = await fetch('/transactions/?limit=2000');
+    const res = await fetch('/transactions/?limit=1000');
     if (!res.ok) throw new Error('Error ' + res.status);
     allTx = await res.json();
     applyFilters();
