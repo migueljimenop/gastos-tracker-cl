@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from app.database import create_tables
-from app.routers import categories, transactions, budgets, reports, scraper, importer
+from app.routers import categories, transactions, budgets, reports, scraper, importer, auth
 
 _STATIC = Path(__file__).parent / "static"
 
@@ -25,6 +25,7 @@ app = FastAPI(
 
 app.mount("/static", StaticFiles(directory=_STATIC), name="static")
 
+app.include_router(auth.router)
 app.include_router(categories.router)
 app.include_router(transactions.router)
 app.include_router(budgets.router)
@@ -36,6 +37,11 @@ app.include_router(scraper.router)
 @app.get("/ui", include_in_schema=False)
 def frontend():
     return FileResponse(_STATIC / "index.html")
+
+
+@app.get("/login", include_in_schema=False)
+def login_page():
+    return FileResponse(_STATIC / "login.html")
 
 
 @app.get("/", tags=["health"])

@@ -12,13 +12,14 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.importers import SantanderImporter, FalabellaImporter
 from app.importers.base import BaseImporter
 from app.models import Transaction
 from app.schemas import ImportResult
 from app.services.categorizer import auto_categorize
 
-router = APIRouter(prefix="/import", tags=["import"])
+router = APIRouter(prefix="/import", tags=["import"], dependencies=[Depends(get_current_user)])
 
 _MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
