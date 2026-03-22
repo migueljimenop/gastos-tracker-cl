@@ -1,5 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional, List
 from sqlalchemy import String, Numeric, DateTime, ForeignKey, Enum, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
@@ -26,8 +27,8 @@ class Category(Base):
     keywords: Mapped[str] = mapped_column(Text, default="")  # comma-separated keywords for auto-categorization
     color: Mapped[str] = mapped_column(String(7), default="#6366f1")  # hex color for UI
 
-    transactions: Mapped[list["Transaction"]] = relationship(back_populates="category")
-    budgets: Mapped[list["Budget"]] = relationship(back_populates="category")
+    transactions: Mapped[List["Transaction"]] = relationship(back_populates="category")
+    budgets: Mapped[List["Budget"]] = relationship(back_populates="category")
 
     def keyword_list(self) -> list[str]:
         return [k.strip().lower() for k in self.keywords.split(",") if k.strip()]
@@ -42,11 +43,11 @@ class Transaction(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     transaction_type: Mapped[TransactionType] = mapped_column(Enum(TransactionType), nullable=False)
     bank_source: Mapped[BankSource] = mapped_column(Enum(BankSource), nullable=False)
-    external_id: Mapped[str | None] = mapped_column(String(200), nullable=True)  # banco's own ID to avoid duplicates
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    external_id: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)  # banco's own ID to avoid duplicates
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
-    category: Mapped["Category | None"] = relationship(back_populates="transactions")
+    category_id: Mapped[Optional[int]] = mapped_column(ForeignKey("categories.id"), nullable=True)
+    category: Mapped[Optional["Category"]] = relationship(back_populates="transactions")
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
