@@ -1,10 +1,11 @@
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
+from sqlalchemy.orm import Session
 
-from app.database import create_tables
+from app.database import create_tables, get_db
 from app.routers import categories, transactions, budgets, reports, scraper, importer, auth
 
 _STATIC = Path(__file__).parent / "static"
@@ -42,6 +43,21 @@ def frontend():
 @app.get("/login", include_in_schema=False)
 def login_page():
     return FileResponse(_STATIC / "login.html")
+
+
+@app.post("/admin/assign-orphan-transactions", tags=["admin"])
+def assign_orphan_transactions(username: str, db: Session = Depends(get_db)):
+    """Asigna todas las transacciones sin usuario al usuario indicado. Usar solo una vez para migrar datos existentes."""
+    from app.models import Transaction, User
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"Usuario '{username}' no encontrado")
+    count = db.query(Transaction).filter(Transaction.user_id == None).update(  # noqa: E711
+        {"user_id": user.id}, synchronize_session=False
+    )
+    db.commit()
+    return {"assigned": count, "to_user": username}
 
 
 @app.get("/", tags=["health"])

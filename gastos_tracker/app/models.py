@@ -59,6 +59,8 @@ class Transaction(Base):
     category_id: Mapped[Optional[int]] = mapped_column(ForeignKey("categories.id"), nullable=True)
     category: Mapped[Optional["Category"]] = relationship(back_populates="transactions")
 
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
