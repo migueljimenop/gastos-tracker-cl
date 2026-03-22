@@ -128,6 +128,56 @@ class TestSantanderImporter:
         abono = next(t for t in txs if "TRANSFERENCIA" in t.description)
         assert abono.transaction_type == TransactionType.CREDIT
 
+    def test_parse_xlsx_with_detalle_movimientos_header(self):
+        """Regression: real Santander xlsx has merged group headers before Fecha row."""
+        openpyxl = pytest.importorskip("openpyxl")
+        import io as _io
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["DETALLE DE MOVIMIENTOS", None, None, None, None, "SALDOS DIARIOS", None])
+        ws.append(["Fecha", "Descripción", "Cargo ($)", "Abono ($)", None, "Saldo ($)", None])
+        ws.append(["15/03/2026", "COMPRA SUPERMERCADO JUMBO", "45.000", None, None, "1.200.000", None])
+        ws.append(["20/03/2026", "ABONO SUELDO EMPRESA SA", None, "2.500.000", None, "3.700.000", None])
+        buf = _io.BytesIO()
+        wb.save(buf)
+        txs = self.importer.parse(buf.getvalue(), "cartola.xlsx")
+        assert len(txs) == 2
+        assert any("JUMBO" in t.description for t in txs)
+        assert any("SUELDO" in t.description for t in txs)
+
+    def test_parse_real_xlsx_layout(self):
+        """Real Santander xlsx: CHEQUES Y OTROS CARGOS / DEPOSITOS Y OTROS ABONOS columns, DD/MM dates."""
+        openpyxl = pytest.importorskip("openpyxl")
+        import io as _io
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        # Metadata rows (as in the real file)
+        ws.append(["Banco Santander", None, None, None, "Cartola de cuenta Corriente - Marzo 2026", None, None])
+        ws.append([None] * 7)
+        ws.append(["Sr(a)", "NOMBRE APELLIDO", None, None, "Cartola N°", 489, None])
+        ws.append(["Rut", "12.345.678-9", None, None, "Desde", "27/02/2026", None])
+        ws.append(["E-mail", "test@test.com", None, None, "Hasta", "02/03/2026", None])
+        ws.append([None] * 7)
+        ws.append(["DETALLE DE MOVIMIENTOS", None, None, None, None, "SALDOS DIARIOS", None])
+        # Real header row
+        ws.append(["FECHA", "SUCURSAL", "DESCRIPCIÓN", "N° DOCUMENTO", "CHEQUES Y OTROS CARGOS", "DEPOSITOS Y OTROS ABONOS", "SALDO"])
+        # Transactions with DD/MM dates (no year)
+        ws.append(["02/03", "Agustinas", "Transf. a Jorge Delgado", "123456", 564300, None, None])
+        ws.append(["02/03", "O.Gerencia", "Inversión en Fondo Mutuo", "034327", 100000, None, None])
+        ws.append(["02/03", "O.Gerencia", "Transf. recibida de Empresa SA", None, None, 338580, None])
+        buf = _io.BytesIO()
+        wb.save(buf)
+        txs = self.importer.parse(buf.getvalue(), "Cartola de cuenta Corriente - Marzo 2026.xlsx")
+        assert len(txs) == 3
+        cargo = next(t for t in txs if "Jorge" in t.description)
+        assert cargo.transaction_type == TransactionType.DEBIT
+        assert cargo.amount == Decimal("564300")
+        assert cargo.date.year == 2026
+        assert cargo.date.month == 3
+        abono = next(t for t in txs if "Empresa SA" in t.description)
+        assert abono.transaction_type == TransactionType.CREDIT
+        assert abono.amount == Decimal("338580")
+
     def test_unsupported_extension_raises(self):
         with pytest.raises(ValueError):
             self.importer.parse(b"data", "cartola.pdf")
@@ -194,6 +244,26 @@ class TestFalabellaImporter:
     def test_unsupported_extension_raises(self):
         with pytest.raises(ValueError):
             self.importer.parse(b"data", "cartola.txt")
+
+    def test_parse_real_xls_layout(self):
+        """Real Falabella .xls: Cargo/Abono columns, DD-MM-YYYY dates, '$ 13.128' amounts."""
+        openpyxl = pytest.importorskip("openpyxl")
+        import io as _io
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["Fecha", "Descripcion", "Cargo", "Abono", "Saldo"])
+        ws.append(["17-03-2026", "Transf para Pago Tarjeta CMR", "$ 13.128", None, "$ 0"])
+        ws.append(["11-03-2026", "Transf. de Miguel Andres", None, "$ 113.985", "$ 116.478"])
+        buf = _io.BytesIO()
+        wb.save(buf)
+        txs = self.importer.parse(buf.getvalue(), "reportCollection.xlsx")
+        assert len(txs) == 2
+        cargo = next(t for t in txs if "Pago Tarjeta" in t.description)
+        assert cargo.transaction_type == TransactionType.DEBIT
+        assert cargo.amount == Decimal("13128")
+        abono = next(t for t in txs if "Miguel" in t.description)
+        assert abono.transaction_type == TransactionType.CREDIT
+        assert abono.amount == Decimal("113985")
 
 
 # ── Upload endpoint integration tests ─────────────────────────────────────────

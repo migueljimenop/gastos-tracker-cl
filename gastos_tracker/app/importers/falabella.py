@@ -50,8 +50,9 @@ class FalabellaImporter(BaseImporter):
     def parse(self, content: bytes, filename: str) -> list[RawTransaction]:
         self._detect_extension(filename)
 
-        raw_df = self._read_dataframe(content, filename)
-        header_row = self._find_header_row(raw_df)
+        header_row = self._find_header_row_in_content(
+            content, filename, {"fecha", "descripción", "descripcion"}
+        )
         df = self._load_with_real_header(content, filename, header_row)
 
         df.columns = [str(c).strip() for c in df.columns]
@@ -152,7 +153,13 @@ class FalabellaImporter(BaseImporter):
             for encoding in ("latin-1", "utf-8", "cp1252"):
                 try:
                     import io
-                    return pd.read_csv(io.BytesIO(content), encoding=encoding, header=header_row, dtype=str)
+                    return pd.read_csv(
+                        io.BytesIO(content),
+                        encoding=encoding,
+                        skiprows=header_row,
+                        header=0,
+                        dtype=str,
+                    )
                 except Exception:
                     continue
         return pd.read_excel(BytesIO(content), header=header_row, dtype=str)
