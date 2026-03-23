@@ -15,7 +15,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.importers import SantanderImporter, FalabellaImporter
 from app.importers.base import BaseImporter
-from app.models import Transaction
+from app.models import Transaction, User
 from app.schemas import ImportResult
 from app.services.categorizer import auto_categorize
 
@@ -29,6 +29,7 @@ async def _import_file(
     importer: BaseImporter,
     bank_label: str,
     db: Session,
+    user_id: int,
 ) -> ImportResult:
     if file.size and file.size > _MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="El archivo supera el límite de 10 MB")
@@ -51,7 +52,10 @@ async def _import_file(
     for raw in raw_transactions:
         # Deduplicate by external_id
         if raw.external_id:
-            exists = db.query(Transaction).filter(Transaction.external_id == raw.external_id).first()
+            exists = db.query(Transaction).filter(
+                Transaction.external_id == raw.external_id,
+                Transaction.user_id == user_id,
+            ).first()
             if exists:
                 skipped_count += 1
                 continue
@@ -66,6 +70,7 @@ async def _import_file(
                 bank_source=raw.bank_source,
                 external_id=raw.external_id,
                 category_id=category_id,
+                user_id=user_id,
             )
             db.add(tx)
             new_count += 1
@@ -88,13 +93,15 @@ async def _import_file(
 async def import_santander(
     file: UploadFile = File(..., description="Archivo de cartola exportado desde banco.santander.cl (.xlsx o .csv)"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    return await _import_file(file, SantanderImporter(), "santander", db)
+    return await _import_file(file, SantanderImporter(), "santander", db, current_user.id)
 
 
 @router.post("/falabella", response_model=ImportResult, summary="Importar cartola Falabella CMR")
 async def import_falabella(
     file: UploadFile = File(..., description="Archivo de cartola exportado desde falabella.com CMR (.xlsx o .csv)"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    return await _import_file(file, FalabellaImporter(), "falabella", db)
+    return await _import_file(file, FalabellaImporter(), "falabella", db, current_user.id)

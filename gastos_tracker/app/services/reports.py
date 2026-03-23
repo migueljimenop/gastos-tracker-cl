@@ -8,12 +8,16 @@ from app.models import Transaction, TransactionType, Category
 from app.schemas import MonthlyReport, CategorySummary
 
 
-def build_monthly_report(year: int, month: int, db: Session) -> MonthlyReport:
+def build_monthly_report(year: int, month: int, db: Session, user_id: int) -> MonthlyReport:
     _, last_day = monthrange(year, month)
     start = datetime(year, month, 1)
     end = datetime(year, month, last_day, 23, 59, 59)
 
-    base_q = db.query(Transaction).filter(Transaction.date >= start, Transaction.date <= end)
+    base_q = db.query(Transaction).filter(
+        Transaction.date >= start,
+        Transaction.date <= end,
+        Transaction.user_id == user_id,
+    )
 
     total_spent = (
         base_q.filter(Transaction.transaction_type == TransactionType.DEBIT)
