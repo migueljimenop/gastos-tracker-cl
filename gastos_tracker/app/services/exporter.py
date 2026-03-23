@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import io
 from datetime import datetime
-from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.models import Transaction
 
 
-def _get_transactions(db: Session, from_date: Optional[datetime], to_date: Optional[datetime]):
-    q = db.query(Transaction)
+def _get_transactions(db: Session, from_date: datetime | None, to_date: datetime | None, user_id: int):
+    q = db.query(Transaction).filter(Transaction.user_id == user_id)
     if from_date:
         q = q.filter(Transaction.date >= from_date)
     if to_date:
@@ -32,10 +31,10 @@ def _to_rows(transactions: list[Transaction]) -> list[dict]:
     ]
 
 
-def export_to_csv(db: Session, from_date: Optional[datetime], to_date: Optional[datetime]) -> str:
+def export_to_csv(db: Session, from_date: datetime | None, to_date: datetime | None, user_id: int) -> str:
     import csv
 
-    transactions = _get_transactions(db, from_date, to_date)
+    transactions = _get_transactions(db, from_date, to_date, user_id)
     rows = _to_rows(transactions)
 
     output = io.StringIO()
@@ -48,10 +47,10 @@ def export_to_csv(db: Session, from_date: Optional[datetime], to_date: Optional[
     return output.getvalue()
 
 
-def export_to_excel(db: Session, from_date: Optional[datetime], to_date: Optional[datetime]) -> bytes:
+def export_to_excel(db: Session, from_date: datetime | None, to_date: datetime | None, user_id: int) -> bytes:
     import pandas as pd
 
-    transactions = _get_transactions(db, from_date, to_date)
+    transactions = _get_transactions(db, from_date, to_date, user_id)
     rows = _to_rows(transactions)
 
     df = pd.DataFrame(rows) if rows else pd.DataFrame()
